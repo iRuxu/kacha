@@ -56,9 +56,3 @@ my-project/
 ## 本地开发
 
 在本仓库运行 `npm install` 安装依赖，用 `npm run dev -- /path/to/project` 启动工作台，用 `npm run build` 执行生产构建。
-
-## 发布 npm 包
-
-把 `package.json` 和锁文件更新到同一版本并提交，再推送对应的 `v<版本>` 标签。例如 `v0.1.1`。GitHub Actions 会校验标签、安装依赖、构建并检查打包内容，随后发布到 npm。也可在 Actions 中选择对应标签手动运行。
-
-首发时，用有 `@2kog` 发布权限的 npm 账号创建允许在该作用域发布新包的短期 Granular Access Token，开启 Bypass 2FA，并将其保存为仓库的 Actions Secret `NPM_TOKEN`。首发成功后，如需改用 Trusted Publishing，在 npm 的 `@2kog/kacha` 包设置中添加 GitHub Actions 发布者，填写组织或用户名 `iRuxu`、仓库 `kacha`、工作流 `publish.yml`，开启 `npm publish` 权限，环境留空。移除 GitHub 的 `NPM_TOKEN` 后，工作流会使用 OIDC 发布。 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)
