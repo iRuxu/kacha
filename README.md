@@ -76,20 +76,6 @@ OSS_ACCESS_KEY_SECRET=
 
 Git LFS 对象存放在配置的 Bucket 下的 `OSS_PREFIX/__kacha_lfs__/objects/`。前缀留空时使用 Bucket 根目录下的 `__kacha_lfs__/objects/`。工作台的「测试连接」会验证已保存的 OSS 配置。
 
-旧版工作台的云朵同步入口已隐藏。历史 OSS 协作版本仍可用 `kacha clone` 下载。
-
-### 下载历史 OSS 协作版本
-
-先创建空目录，在其中创建 `.env`，填写同事分享的 `OSS_ENDPOINT`、`OSS_BUCKET`、`OSS_PREFIX` 和自己的 `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`。Bucket 根目录可省略 `OSS_PREFIX`。项目需已通过咔嚓发布协作版本。
-
-在该目录运行：
-
-```bash
-kacha clone .
-```
-
-点号表示当前目录，也可以省略，或传入一个已配置 `.env` 的目标目录。克隆完成后，运行 `kacha` 打开工作台。
-
 ## Git LFS 直连 OSS
 
 安装 Git LFS 后，可以用 Git 管理剧本和文件指针，用阿里云 OSS 保存媒体文件。咔嚓作为 Git LFS 的本地传输代理，读取仓库根目录的 `.env`，直接上传和下载 OSS 对象。凭据留在每台电脑的 `.env`。对象写入 `OSS_PREFIX/__kacha_lfs__/objects/`，与咔嚓的项目同步版本分开。
