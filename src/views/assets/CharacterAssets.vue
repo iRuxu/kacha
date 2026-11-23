@@ -1,13 +1,18 @@
 <script>
 import AssetDeleteButton from '@/components/AssetDeleteButton.vue'
-import { ElSwitch } from 'element-plus'
+import { ElCheckbox, ElDropdown, ElDropdownItem, ElDropdownMenu, ElSwitch } from 'element-plus'
 import AssetHistory from '@/components/AssetHistory.vue'
 import AssetStoryEditor from '@/components/AssetStoryEditor.vue'
 import AssetTagInput from '@/components/AssetTagInput.vue'
 import ProjectMarkdown from '@/components/ProjectMarkdown.vue'
+import 'element-plus/es/components/checkbox/style/css'
+import 'element-plus/es/components/dropdown/style/css'
+import 'element-plus/es/components/dropdown-item/style/css'
+import 'element-plus/es/components/dropdown-menu/style/css'
 import 'element-plus/es/components/switch/style/css'
-import { AudioLines, Check, Image, Layers3, Pencil, Plus, RefreshCw, Search, Star, Upload, X } from 'lucide-vue-next'
+import { AudioLines, Check, ChevronDown, Image, Layers3, ListChecks, Pencil, Plus, RefreshCw, Search, Star, Upload, X } from 'lucide-vue-next'
 import { requestAsset } from '@/service/assets.js'
+import { jimengSyncUrl } from '@/service/jimeng.js'
 
 const mediaTypes = [
   { key: 'image2d', label: '2D 图', icon: 'Image', accept: '.png,.jpg,.jpeg,.webp,.avif' },
@@ -24,15 +29,19 @@ const tabs = [
 
 export default {
   name: 'CharacterAssets',
-  components: { AssetDeleteButton, AssetHistory, AssetStoryEditor, AssetTagInput, ProjectMarkdown, ElSwitch, AudioLines, Check, Image, Layers3, Pencil, Plus, RefreshCw, Search, Star, Upload, X },
+  components: { AssetDeleteButton, AssetHistory, AssetStoryEditor, AssetTagInput, ProjectMarkdown, ElCheckbox, ElDropdown, ElDropdownItem, ElDropdownMenu, ElSwitch, AudioLines, Check, ChevronDown, Image, Layers3, ListChecks, Pencil, Plus, RefreshCw, Search, Star, Upload, X },
   data() {
     return {
       mediaTypes, tabs, characters: [], query: '', filters: [], missingVoiceOnly: false, coverPreview: '', cardPreviews: {},
+      selecting: false, selectedIds: new Set(),
       active: null, activeTab: 'overview', galleryFile: '', creating: false, busy: false,
       form: null, overviewDraft: {}, storyDraft: null, promptDraft: null, error: '', pageError: '', ready: false, refreshRevision: 0, openRevision: 0,
     }
   },
   computed: {
+    codexSyncUrl() {
+      return jimengSyncUrl('characters', [this.active], '请按咔嚓的 sync-jimeng-assets 技能，将这个角色同步到即梦网页主体库。')
+    },
     tags() {
       return [...new Set(this.characters.flatMap(character => character.tags))].sort((a, b) => a.localeCompare(b, 'zh-CN'))
     },
@@ -44,6 +53,12 @@ export default {
       return this.characters.filter(character => (!this.missingVoiceOnly || !character.media.voice)
         && this.filters.every(tag => character.tags.includes(tag))
         && [character.name, ...character.tags].some(value => value.toLowerCase().includes(query)))
+    },
+    selectedCharacters() {
+      return this.characters.filter(character => this.selectedIds.has(character.id))
+    },
+    allVisibleSelected() {
+      return this.visibleCharacters.length > 0 && this.visibleCharacters.every(character => this.selectedIds.has(character.id))
     },
     galleryImages() {
       return (this.activeTab === 'skins' ? this.active?.skins : this.active?.portraits) ?? []
@@ -69,6 +84,7 @@ export default {
     if (this.busy) return false
   },
   deactivated() {
+    this.toggleSelection(false)
     this.openRevision++
     this.$refs.create.close()
     this.$refs.detail.close()
@@ -98,11 +114,62 @@ export default {
         const characters = await requestAsset('characters')
         if (revision !== this.refreshRevision) return
         this.characters = characters
+        this.selectedIds = new Set(characters.filter(character => this.selectedIds.has(character.id)).map(character => character.id))
         this.filters = this.filters.filter(tag => this.tags.includes(tag))
         this.ready = true
         this.pageError = ''
       } catch (error) {
         if (revision === this.refreshRevision) this.pageError = error.message
+      }
+    },
+    toggleSelection(selecting) {
+      this.selecting = selecting
+      this.openRevision++
+      if (!selecting) this.selectedIds.clear()
+    },
+    setSelected(id, selected) {
+      if (selected) this.selectedIds.add(id)
+      else this.selectedIds.delete(id)
+    },
+    toggleVisibleSelection() {
+      const selected = !this.allVisibleSelected
+      for (const character of this.visibleCharacters) this.setSelected(character.id, selected)
+    },
+    canSetBatchCover(slot) {
+      return this.selectedCharacters.some(character => character.media[slot] && character.main !== slot)
+    },
+    handleBatchAction(command) {
+      if (this.busy || !this.selectedCharacters.length) return
+      if (command !== 'syncJimeng') return this.setBatchCover(command)
+
+      const url = jimengSyncUrl(
+        'characters',
+        this.selectedCharacters,
+        '请按咔嚓的 sync-jimeng-assets 技能，将以下角色批量新增到即梦网页主体库，跳过已有主体。',
+      )
+      window.location.assign(url)
+    },
+    async setBatchCover(slot) {
+      if (this.busy || !['image2d', 'image3d'].includes(slot)) return
+      const targets = this.selectedCharacters.filter(character => character.media[slot] && character.main !== slot)
+      if (!targets.length) return
+      const failures = []
+      this.busy = true
+      this.pageError = ''
+      try {
+        for (const character of targets) {
+          try {
+            await requestAsset('characters', character.id, 'PATCH', { mainImage: slot })
+          } catch (error) {
+            failures.push(`${character.name} · ${error.message}`)
+          }
+        }
+        await this.refresh()
+        if (failures.length) {
+          this.pageError = [this.pageError, ...failures].filter(Boolean).join(' / ')
+        }
+      } finally {
+        this.busy = false
       }
     },
     toggleTag(tag) {
@@ -120,6 +187,10 @@ export default {
       return character.media[preview] ? preview : character.main
     },
     async open(character) {
+      if (this.selecting) {
+        this.setSelected(character.id, !this.selectedIds.has(character.id))
+        return
+      }
       const revision = ++this.openRevision
       try {
         const detail = await requestAsset('characters', character.id)
@@ -246,6 +317,31 @@ export default {
               </div>
             </div>
           </div>
+          <div class="character-selection-actions">
+            <template v-if="selecting">
+              <span role="status">{{ $t('已选 {count} 个', { count: selectedIds.size }) }}</span>
+              <button type="button" class="secondary" :disabled="!visibleCharacters.length" @click="toggleVisibleSelection">
+                {{ $t(allVisibleSelected ? '取消全选' : '全选') }}
+              </button>
+              <button type="button" class="secondary" :disabled="!selectedIds.size" @click="selectedIds.clear()">{{ $t('清空') }}</button>
+            </template>
+            <button type="button" class="secondary" :aria-pressed="selecting" :disabled="busy" @click="toggleSelection(!selecting)">
+              <ListChecks :size="16" aria-hidden="true" />
+              {{ $t(selecting ? '退出' : '批量选择') }}
+            </button>
+            <ElDropdown v-if="selecting" trigger="click" :disabled="busy || !selectedIds.size" @command="handleBatchAction">
+              <button type="button" class="primary" :disabled="busy || !selectedIds.size">
+                {{ $t('批量操作') }} <ChevronDown :size="16" aria-hidden="true" />
+              </button>
+              <template #dropdown>
+                <ElDropdownMenu>
+                  <ElDropdownItem command="image2d" :disabled="!canSetBatchCover('image2d')">{{ $t('设为 2D 主图') }}</ElDropdownItem>
+                  <ElDropdownItem command="image3d" :disabled="!canSetBatchCover('image3d')">{{ $t('设为 3D 主图') }}</ElDropdownItem>
+                  <ElDropdownItem command="syncJimeng" divided>{{ $t('用 Codex 同步到即梦') }}</ElDropdownItem>
+                </ElDropdownMenu>
+              </template>
+            </ElDropdown>
+          </div>
         </div>
         <div class="filter-list" :aria-label="$t('按标签筛选')">
           <button class="tag" :class="{ chosen: !filters.length }" @click="filters = []">{{ $t('全部') }}</button>
@@ -255,9 +351,13 @@ export default {
       <p v-if="pageError" class="error" role="alert">{{ pageError }}</p>
       <p v-if="ready && !visibleCharacters.length" class="empty">{{ $t('没有匹配的角色') }}</p>
       <div class="grid">
-        <article v-for="character in visibleCharacters" :key="character.id" class="card">
+        <article v-for="character in visibleCharacters" :key="character.id" class="card" :class="{ 'character-card-selected': selectedIds.has(character.id) }">
           <div class="card-preview">
-            <button class="cover" :aria-label="$t('查看 {name}', { name: character.name })" @click="open(character)">
+            <ElCheckbox v-if="selecting" class="character-selection-checkbox"
+              :model-value="selectedIds.has(character.id)" :aria-label="character.name"
+              @change="setSelected(character.id, $event)" />
+            <button class="cover" :aria-label="selecting ? character.name : $t('查看 {name}', { name: character.name })"
+              :aria-pressed="selecting ? selectedIds.has(character.id) : undefined" @click="open(character)">
               <img v-if="character.main" :src="character.media[cardImage(character)]" loading="lazy" :alt="character.name">
               <span v-else class="character-cover-empty" aria-hidden="true"></span>
             </button>
@@ -286,14 +386,15 @@ export default {
     </section>
 
     <dialog ref="create" class="dialog small-dialog" @close="creating = false" @cancel.prevent="!busy && $refs.create.close()">
-      <form v-if="creating" @submit.prevent="save({ name: form.name }, true)">
+      <form class="dialog-form" v-if="creating" @submit.prevent="save({ name: form.name }, true)">
         <header class="dialog-head"><h2>{{ $t('新建角色') }}</h2><button type="button" class="icon-button" :aria-label="$t('关闭')" :disabled="busy" @click="$refs.create.close()"><X :size="20" /></button></header>
         <div class="dialog-body"><label class="field">{{ $t('角色名') }}<input v-model="form.name" required autofocus></label>
           <p v-if="error" class="error" role="alert">{{ error }}</p>
-          <div class="dialog-actions create-actions">
-            <button class="primary" :disabled="busy">{{ $t('创建角色') }}</button>
-          </div>
         </div>
+        <footer class="dialog-footer">
+          <button type="button" class="secondary" :disabled="busy" @click="$refs.create.close()">{{ $t('取消') }}</button>
+          <button type="submit" class="primary" :disabled="busy">{{ $t('创建角色') }}</button>
+        </footer>
       </form>
     </dialog>
 
@@ -310,7 +411,7 @@ export default {
         </div>
         <div ref="detailBody" class="dialog-body">
           <p v-if="error" class="error" role="alert">{{ error }}</p>
-          <form v-if="activeTab === 'overview'" class="edit-form" @submit.prevent="saveOverview">
+          <form v-if="activeTab === 'overview'" id="character-overview-form" class="edit-form" @submit.prevent="saveOverview">
             <label class="field">{{ $t('名称') }}
               <input :value="overviewDraft.name ?? active.name" required :disabled="busy"
                 @input="overviewDraft.name = $event.target.value">
@@ -324,10 +425,6 @@ export default {
               <textarea :value="overviewDraft.note ?? active.note" rows="8" :placeholder="$t('写点笔记…')" :disabled="busy"
                 @input="overviewDraft.note = $event.target.value"></textarea>
             </label>
-            <div class="dialog-actions overview-actions">
-              <AssetDeleteButton :asset-name="active.name" :busy="busy" @confirm="deleteAsset" />
-              <button class="primary overview-save-button" :disabled="busy">{{ $t('保存') }}</button>
-            </div>
           </form>
           <template v-else-if="activeTab === 'portraits' || activeTab === 'skins'">
             <template v-if="currentGalleryImage">
@@ -395,17 +492,23 @@ export default {
                   {{ currentPrompt ? $t('编辑生成词') : $t('添加生成词') }}
                 </button>
               </div>
-              <form v-if="promptDraft !== null" @submit.prevent="savePrompt">
+              <form id="character-prompt-form" v-if="promptDraft !== null" @submit.prevent="savePrompt">
                 <label class="field"><span class="visually-hidden">{{ $t('{label}生成词', { label: $t(mediaSlot.label) }) }}</span><textarea v-model="promptDraft" rows="4" :disabled="busy"></textarea></label>
-                <div class="dialog-actions">
-                  <button class="primary" :disabled="busy">{{ $t('保存生成词') }}</button>
-                  <button type="button" class="secondary" :disabled="busy" @click="promptDraft = null">{{ $t('取消') }}</button>
-                </div>
               </form>
               <pre v-else-if="currentPrompt">{{ currentPrompt }}</pre>
             </section>
           </template>
         </div>
+        <footer class="dialog-footer overview-actions" v-if="activeTab === 'overview'">
+          <AssetDeleteButton :asset-name="active.name" :busy="busy" @confirm="deleteAsset" />
+          <a class="secondary codex-sync-link" :href="codexSyncUrl">{{ $t('用 Codex 同步到即梦') }}</a>
+          <button type="button" class="secondary" :disabled="busy" @click="$refs.detail.close()">{{ $t('取消') }}</button>
+          <button form="character-overview-form" type="submit" class="primary overview-save-button" :disabled="busy">{{ $t('保存') }}</button>
+        </footer>
+        <footer class="dialog-footer" v-if="mediaSlot && promptDraft !== null">
+          <button type="button" class="secondary" :disabled="busy" @click="promptDraft = null">{{ $t('取消') }}</button>
+          <button form="character-prompt-form" type="submit" class="primary" :disabled="busy">{{ $t('保存生成词') }}</button>
+        </footer>
       </template>
     </dialog>
   </div>

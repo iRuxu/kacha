@@ -1,19 +1,27 @@
 <script>
+import { ElCheckbox, ElDropdown, ElDropdownItem, ElDropdownMenu, ElOption, ElSelect } from 'element-plus'
+import 'element-plus/es/components/checkbox/style/css'
+import 'element-plus/es/components/dropdown/style/css'
+import 'element-plus/es/components/dropdown-item/style/css'
+import 'element-plus/es/components/dropdown-menu/style/css'
+import 'element-plus/es/components/select/style/css'
 import AssetDeleteButton from '@/components/AssetDeleteButton.vue'
 import AssetHistory from '@/components/AssetHistory.vue'
 import AssetStoryEditor from '@/components/AssetStoryEditor.vue'
 import AssetTagInput from '@/components/AssetTagInput.vue'
 import ProjectMarkdown from '@/components/ProjectMarkdown.vue'
 import { requestAsset } from '@/service/assets.js'
-import { Image, Pencil, Plus, RefreshCw, Search, Upload, X } from 'lucide-vue-next'
+import { jimengSyncUrl } from '@/service/jimeng.js'
+import { ChevronDown, Image, ListChecks, Pencil, Plus, RefreshCw, Search, Upload, X } from 'lucide-vue-next'
 
 export default {
-  components: { AssetDeleteButton, AssetHistory, AssetStoryEditor, AssetTagInput, ProjectMarkdown, Image, Pencil, Plus, RefreshCw, Search, Upload, X },
+  components: { ElCheckbox, ElDropdown, ElDropdownItem, ElDropdownMenu, ChevronDown, ListChecks, ElOption, ElSelect, AssetDeleteButton, AssetHistory, AssetStoryEditor, AssetTagInput, ProjectMarkdown, Image, Pencil, Plus, RefreshCw, Search, Upload, X },
   props: { kind: { type: String, default: 'scenes' } },
   data() {
     return {
       scenes: [], tagFilters: [], query: '', createTags: [], overviewDraft: {}, scene: null, tab: 'cover', category: '', selectedId: '',
       imageForm: null, storyDraft: null, promptDraft: null, create: false, name: '',
+      selecting: false, selectedIds: new Set(),
       busy: false, error: '', pageError: '', revision: 0,
     }
   },
@@ -43,6 +51,9 @@ export default {
         return this.tagFilters.every(tag => tags.includes(tag))
           && [scene.name, ...tags, ...scene.groupPath].some(value => value.toLowerCase().includes(query))
       })
+    },
+    allVisibleSelected() {
+      return this.visibleScenes.length > 0 && this.visibleScenes.every(item => this.selectedIds.has(item.id))
     },
     detailTabs() {
       const galleries = this.isOther
@@ -77,6 +88,9 @@ export default {
   beforeRouteLeave() {
     if (this.busy) return false
   },
+  deactivated() {
+    this.toggleSelection(false)
+  },
   mounted() {
     this.refresh()
     import.meta.hot?.on(this.changeEvent, this.refreshAssets)
@@ -85,6 +99,31 @@ export default {
     import.meta.hot?.off(this.changeEvent, this.refreshAssets)
   },
   methods: {
+    toggleSelection(selecting) {
+      this.selecting = selecting
+      if (!selecting) this.selectedIds.clear()
+    },
+    setSelected(id, selected) {
+      if (selected) this.selectedIds.add(id)
+      else this.selectedIds.delete(id)
+    },
+    toggleVisibleSelection() {
+      const selected = !this.allVisibleSelected
+      for (const character of this.visibleScenes) this.setSelected(character.id, selected)
+    },
+    syncSelectedToJimeng() {
+      if (this.busy || !this.selectedIds.size) return
+      const assets = this.scenes.filter(item => this.selectedIds.has(item.id))
+      const instruction = '请按咔嚓的 sync-jimeng-assets 技能，将以下资产批量新增到即梦网页主体库，跳过已有主体。类型：' + this.assetLabel
+      window.location.assign(jimengSyncUrl(this.kind, assets, instruction))
+    },
+    openOrSelect(item) {
+      if (this.selecting) {
+        this.setSelected(item.id, !this.selectedIds.has(item.id))
+        return
+      }
+      return this.open(item)
+    },
     toggleTag(tag) {
       this.tagFilters = this.tagFilters.includes(tag)
         ? this.tagFilters.filter(value => value !== tag)
@@ -110,6 +149,7 @@ export default {
         const scenes = await requestAsset(this.kind)
         if (revision !== this.revision) return
         this.scenes = scenes
+        this.selectedIds = new Set(scenes.filter(item => this.selectedIds.has(item.id)).map(item => item.id))
         this.tagFilters = this.tagFilters.filter(tag => this.availableTags.includes(tag))
         this.pageError = ''
       } catch (cause) {
@@ -281,7 +321,32 @@ export default {
       <button class="primary" :disabled="busy" @click="showCreate"><Plus :size="18" /> {{ $t('新建' + assetLabel) }}</button>
     </div>
     <div class="tools">
-      <label class="search"><Search :size="17" /><input v-model="query" :placeholder="$t('搜索名称或标签')" :aria-label="$t('搜索名称或标签')"></label>
+      <div class="character-toolbar">
+        <label class="search"><Search :size="17" /><input v-model="query" :placeholder="$t('搜索名称或标签')" :aria-label="$t('搜索名称或标签')"></label>
+        <div class="character-selection-actions">
+          <template v-if="selecting">
+            <span role="status">{{ $t('已选 {count} 个', { count: selectedIds.size }) }}</span>
+            <button type="button" class="secondary" :disabled="!visibleScenes.length" @click="toggleVisibleSelection">
+              {{ $t(allVisibleSelected ? '取消全选' : '全选') }}
+            </button>
+            <button type="button" class="secondary" :disabled="!selectedIds.size" @click="selectedIds.clear()">{{ $t('清空') }}</button>
+          </template>
+          <button type="button" class="secondary" :aria-pressed="selecting" :disabled="busy" @click="toggleSelection(!selecting)">
+            <ListChecks :size="16" aria-hidden="true" />
+            {{ $t(selecting ? '退出' : '批量选择') }}
+          </button>
+          <ElDropdown v-if="selecting" trigger="click" :disabled="busy || !selectedIds.size" @command="syncSelectedToJimeng">
+            <button type="button" class="primary" :disabled="busy || !selectedIds.size">
+              {{ $t('批量操作') }} <ChevronDown :size="16" aria-hidden="true" />
+            </button>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem command="syncJimeng">{{ $t('用 Codex 同步到即梦') }}</ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+        </div>
+      </div>
       <div v-if="availableTags.length" class="filter-list" :aria-label="$t('按标签筛选')">
         <button class="tag" :class="{ chosen: !tagFilters.length }" :aria-pressed="!tagFilters.length" @click="tagFilters = []">{{ $t('全部') }}</button>
         <button v-for="tag in availableTags" :key="tag" class="tag" :class="{ chosen: tagFilters.includes(tag) }"
@@ -291,13 +356,18 @@ export default {
     <p v-if="pageError" class="error" role="alert">{{ pageError }}</p>
     <p v-else-if="!visibleScenes.length" class="empty">{{ $t('没有匹配的' + assetLabel) }}</p>
     <div class="grid">
-      <article v-for="item in visibleScenes" :key="item.id" class="card scene-card">
-        <button class="cover" :class="{ 'transparent-preview': kind === 'other' || item.transparentPreview || item.cover?.category === 'graphic' }" :aria-label="$t('查看 {name}', { name: item.name })" :disabled="busy" @click="open(item)">
-          <img v-if="item.cover?.url" :src="item.cover.url" :alt="item.cover.label" loading="lazy">
-          <span v-else class="placeholder"><Image :size="24" />{{ $t('待补主图') }}</span>
-        </button>
+      <article v-for="item in visibleScenes" :key="item.id" class="card scene-card" :class="{ 'character-card-selected': selectedIds.has(item.id) }">
+        <div class="card-preview">
+          <ElCheckbox v-if="selecting" class="character-selection-checkbox"
+            :model-value="selectedIds.has(item.id)" :aria-label="item.name"
+            @change="setSelected(item.id, $event)" />
+          <button class="cover" :class="{ 'transparent-preview': kind === 'other' || item.transparentPreview || item.cover?.category === 'graphic' }" :aria-label="$t('查看 {name}', { name: item.name })" :disabled="busy" :aria-pressed="selecting ? selectedIds.has(item.id) : undefined" @click="openOrSelect(item)">
+            <img v-if="item.cover?.url" :src="item.cover.url" :alt="item.cover.label" loading="lazy">
+            <span v-else class="placeholder"><Image :size="24" />{{ $t('待补主图') }}</span>
+          </button>
+        </div>
         <div class="scene-card-info">
-          <button class="character-name" :disabled="busy" @click="open(item)">{{ item.name }}</button>
+          <button class="character-name" :disabled="busy" @click="openOrSelect(item)">{{ item.name }}</button>
           <div v-if="item.tags?.length" class="card-tags image-card-tags">
             <button v-for="tag in item.tags" :key="tag" class="tag compact" :aria-pressed="tagFilters.includes(tag)"
               :class="{ chosen: tagFilters.includes(tag) }" @click="toggleTag(tag)">{{ tag }}</button>
@@ -309,7 +379,7 @@ export default {
     </div>
 
     <dialog ref="create" class="dialog small-dialog" @close="create = false" @cancel.prevent="!busy && $refs.create.close()">
-      <form v-if="create" @submit.prevent="createScene">
+      <form class="dialog-form" v-if="create" @submit.prevent="createScene">
         <header class="dialog-head"><h2>{{ $t('新建' + assetLabel) }}</h2><button type="button" class="icon-button" :aria-label="$t('关闭')" :disabled="busy" @click="$refs.create.close()"><X :size="20" /></button></header>
         <div class="dialog-body">
           <label class="field">{{ $t(assetLabel + '名') }}<input v-model="name" required autofocus></label>
@@ -318,10 +388,11 @@ export default {
             <AssetTagInput id="create-image-asset-tags" v-model="createTags" :disabled="busy" />
           </div>
           <p v-if="error" class="error" role="alert">{{ error }}</p>
-          <div class="dialog-actions create-actions">
-            <button class="primary" :disabled="busy">{{ $t('创建' + assetLabel) }}</button>
-          </div>
         </div>
+        <footer class="dialog-footer">
+          <button type="button" class="secondary" :disabled="busy" @click="$refs.create.close()">{{ $t('取消') }}</button>
+          <button type="submit" class="primary" :disabled="busy">{{ $t('创建' + assetLabel) }}</button>
+        </footer>
       </form>
     </dialog>
 
@@ -345,7 +416,7 @@ export default {
         </div>
         <div ref="detailBody" class="dialog-body">
           <p v-if="error" class="error" role="alert">{{ error }}</p>
-          <form v-if="tab === 'overview'" class="edit-form" @submit.prevent="saveOverview">
+          <form v-if="tab === 'overview'" id="image-overview-form" class="edit-form" @submit.prevent="saveOverview">
             <label class="field">{{ $t('名称') }}
               <input :value="overviewDraft.name ?? scene.name" required :disabled="busy"
                 @input="overviewDraft.name = $event.target.value">
@@ -359,10 +430,6 @@ export default {
               <textarea :value="overviewDraft.note ?? scene.note" rows="8" :placeholder="$t('写点笔记…')" :disabled="busy"
                 @input="overviewDraft.note = $event.target.value"></textarea>
             </label>
-            <div class="dialog-actions overview-actions">
-              <AssetDeleteButton :asset-name="scene.name" :busy="busy" @confirm="deleteAsset" />
-              <button class="primary overview-save-button" :disabled="busy">{{ $t('保存') }}</button>
-            </div>
           </form>
           <template v-else-if="tab === 'cover' || inGallery">
             <div v-if="inGallery && filteredImages.length" class="scene-thumbnails"
@@ -371,22 +438,28 @@ export default {
                 <img v-if="image.url" :src="image.url" alt="" loading="lazy"><span>{{ image.label }}</span>
               </button>
             </div>
-            <form v-if="imageForm" class="edit-form scene-edit" @submit.prevent="uploadImage">
+            <form id="image-edit-form" v-if="imageForm" class="edit-form scene-edit" @submit.prevent="uploadImage">
               <fieldset class="scene-image-fields" :disabled="busy">
                 <label v-if="!simpleCover && (!isProp || imageForm.replaceFile)" class="field">{{ $t('图片名称') }}<input v-model="imageForm.label" required></label>
                 <div v-if="!simpleCover && (!isProp || imageForm.replaceFile)" class="scene-field-row">
-                  <label v-if="!isProp && (!isScene || (imageForm.replaceFile && inGallery))" class="field">{{ $t('分类') }}<select v-model="imageForm.category"><option v-for="(label, key) in scene.groups" :key="key" :value="key">{{ $t(label) }}</option></select></label>
-                  <label class="field">{{ $t('采用状态') }}<select v-model="imageForm.status"><option v-for="(label, key) in scene.statuses" :key="key" :value="key">{{ $t(label) }}</option></select></label>
+                  <div v-if="!isProp && (!isScene || (imageForm.replaceFile && inGallery))" class="field">
+                    <label for="image-asset-category">{{ $t('分类') }}</label>
+                    <ElSelect id="image-asset-category" v-model="imageForm.category" :teleported="false" :disabled="busy">
+                      <ElOption v-for="(label, key) in scene.groups" :key="key" :value="key" :label="$t(label)" />
+                    </ElSelect>
+                  </div>
+                  <div class="field">
+                    <label for="image-asset-status">{{ $t('采用状态') }}</label>
+                    <ElSelect id="image-asset-status" v-model="imageForm.status" :teleported="false" :disabled="busy">
+                      <ElOption v-for="(label, key) in scene.statuses" :key="key" :value="key" :label="$t(label)" />
+                    </ElSelect>
+                  </div>
                 </div>
                 <label v-if="imageForm.replaceFile" class="field">{{ $t('选择图片') }}<input type="file" accept=".png,.jpg,.jpeg,.webp,.avif" required @change="imageForm.file = $event.target.files[0]"></label>
                 <div v-if="isScene" class="scene-field-row scene-conditions">
                   <label v-for="key in ['season', 'time', 'weather']" :key="key" class="field">{{ $t('{category}（选填）', { category: $t(scene.groups[key]) }) }}<input v-model="imageForm.conditions[key]"></label>
                 </div>
                 <label class="field">{{ $t('生成词') }}<textarea v-model="imageForm.prompt" rows="4"></textarea></label>
-                <div class="dialog-actions create-actions">
-                  <button type="button" class="secondary" @click="imageForm = null; error = ''">{{ $t('取消') }}</button>
-                  <button class="primary">{{ $t(imageForm.replaceFile ? '保存图片' : '保存资料') }}</button>
-                </div>
               </fieldset>
             </form>
             <template v-else-if="activeImage">
@@ -415,14 +488,10 @@ export default {
                     {{ activeImage.prompt ? $t('编辑生成词') : $t('添加生成词') }}
                   </button>
                 </div>
-                <form v-if="promptDraft !== null" @submit.prevent="saveImagePrompt">
+                <form id="image-prompt-form" v-if="promptDraft !== null" @submit.prevent="saveImagePrompt">
                   <label class="field"><span class="visually-hidden">{{ $t('图片生成词') }}</span>
                     <textarea v-model="promptDraft" rows="4" :disabled="busy"></textarea>
                   </label>
-                  <div class="dialog-actions">
-                    <button class="primary" :disabled="busy">{{ $t('保存生成词') }}</button>
-                    <button type="button" class="secondary" :disabled="busy" @click="promptDraft = null; error = ''">{{ $t('取消') }}</button>
-                  </div>
                 </form>
                 <pre v-else-if="activeImage.prompt">{{ activeImage.prompt }}</pre>
               </section>
@@ -450,6 +519,19 @@ export default {
             </template>
           </AssetHistory>
         </div>
+        <footer class="dialog-footer overview-actions" v-if="tab === 'overview'">
+          <AssetDeleteButton :asset-name="scene.name" :busy="busy" @confirm="deleteAsset" />
+          <button type="button" class="secondary" :disabled="busy" @click="$refs.detail.close()">{{ $t('取消') }}</button>
+          <button form="image-overview-form" type="submit" class="primary overview-save-button" :disabled="busy">{{ $t('保存') }}</button>
+        </footer>
+        <footer class="dialog-footer" v-if="(tab === 'cover' || inGallery) && imageForm">
+          <button type="button" class="secondary" :disabled="busy" @click="imageForm = null; error = ''">{{ $t('取消') }}</button>
+          <button form="image-edit-form" type="submit" class="primary" :disabled="busy">{{ $t(imageForm.replaceFile ? '保存图片' : '保存资料') }}</button>
+        </footer>
+        <footer class="dialog-footer" v-if="tab === 'cover' && !imageForm && activeImage?.url && promptDraft !== null">
+          <button type="button" class="secondary" :disabled="busy" @click="promptDraft = null; error = ''">{{ $t('取消') }}</button>
+          <button form="image-prompt-form" type="submit" class="primary" :disabled="busy">{{ $t('保存生成词') }}</button>
+        </footer>
       </template>
     </dialog>
   </section>

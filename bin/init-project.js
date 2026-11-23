@@ -1,36 +1,24 @@
 import { constants } from 'node:fs'
 import { copyFile, lstat, mkdir, readdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const templateRoot = fileURLToPath(new URL('../templates/project/', import.meta.url))
 
-const gitignore = `node_modules/
-.DS_Store
+const gitignore = `.DS_Store
+tmp/
+node_modules/
+.env
+.env.*
+.kacha/oss-sync/
+.kacha/lfs-transfer/
+`
 
-# 资产历史版本
-archive/
-
-# 视频素材
-*.[mM][pP]4
-*.[mM][oO][vV]
-*.[mM]4[vV]
-*.[wW][eE][bB][mM]
-*.[mM][kK][vV]
-*.[aA][vV][iI]
-*.[mM][pP][gG]
-*.[mM][pP][eE][gG]
-*.[wW][mM][vV]
-*.[fF][lL][vV]
-*.[mM][xX][fF]
-*.3[gG][pP]
-*.3[gG]2
-*.[oO][gG][vV]
-*.[mM][tT][sS]
-*.[mM]2[tT][sS]
-*.[vV][oO][bB]
-*.[rR][mM]
-*.[rR][mM][vV][bB]
+const envTemplate = `OSS_ENDPOINT=
+OSS_BUCKET=
+OSS_PREFIX=
+OSS_ACCESS_KEY_ID=
+OSS_ACCESS_KEY_SECRET=
 `
 
 async function keepExisting(operation) {
@@ -60,4 +48,8 @@ async function copyTemplates(source, destination) {
 export async function initProject(projectRoot) {
   await copyTemplates(templateRoot, projectRoot)
   await keepExisting(() => writeFile(join(projectRoot, '.gitignore'), gitignore, { flag: 'wx' }))
+  await keepExisting(() => writeFile(join(projectRoot, '.env'), envTemplate, { flag: 'wx', mode: 0o600 }))
+  const projectName = encodeURIComponent(basename(projectRoot) || 'project')
+  const lfsConfig = `[lfs]\n\turl = https://kacha-lfs.invalid/${projectName}\n`
+  await keepExisting(() => writeFile(join(projectRoot, '.lfsconfig'), lfsConfig, { flag: 'wx' }))
 }

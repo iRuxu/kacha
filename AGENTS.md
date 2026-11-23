@@ -18,7 +18,7 @@
 
 ## 组件与交互
 
-- **组件**：使用 Vue 3 Options API。新增标准控件直接复用 Element Plus，例如下拉用 `ElSelect`，标签输入用 `ElInputTag`，分段切换用 `ElSegmented`。按需引入组件和样式，用局部 CSS 变量适配主题。图标优先用 Lucide。
+- **组件**：使用 Vue 3 Options API。新增标准控件直接复用 Element Plus，例如下拉用 `ElSelect`，标签输入用 `ElInputTag`，分段切换用 `ElSegmented`。按需引入组件和样式，主题主色通过 `workbench.css` 的全局 `--el-color-primary*` 变量统一注入，局部样式只调整组件专属的交互和尺寸。图标优先用 Lucide。
 - **布局**：沿用 4、8、12、16、24、32 px 的间距。小控件圆角约 8 px，卡片约 12–16 px。窄屏筛选栏可换行，控件宽度要能完整显示中英文常用选项。
 - **交互**：悬停和聚焦时保持控件尺寸稳定，保留可见的键盘焦点。多页签弹窗固定标题和页签，内容区独立滚动，关闭按钮与标题垂直居中，创建按钮靠右。
 - **文案**：界面文案走中英文 i18n，默认简体中文。项目 Markdown 统一用 `ProjectMarkdown.vue` 预览。

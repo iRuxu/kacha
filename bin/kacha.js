@@ -16,7 +16,29 @@ try {
     },
   })
   if (values.help) {
-    console.log('Usage: kacha [project-directory] [--port 24074]\n       kacha init')
+    console.log('Usage: kacha [project-directory] [--port 24074]\n       kacha init\n       kacha clone [project-directory]\n       kacha lfs setup')
+  } else if (positionals[0] === 'lfs') {
+    const command = positionals[1]
+    if (positionals.length !== 2 || !['setup', 'transfer'].includes(command)) {
+      throw new Error('Usage: kacha lfs setup')
+    }
+    const { findGitProject, setupLfs } = await import('./lfs-setup.js')
+    const root = findGitProject()
+    if (command === 'setup') {
+      setupLfs(root)
+      console.log('Kacha OSS transfer agent configured for this Git repository.')
+    } else {
+      const { runLfsTransfer } = await import('./lfs-transfer.js')
+      await runLfsTransfer(root)
+    }
+  } else if (positionals[0] === 'clone') {
+    if (positionals.length > 2) throw new Error('Usage: kacha clone [project-directory]')
+    const projectRoot = resolve(positionals[1] ?? '.')
+    if (!(await stat(projectRoot).catch(() => null))?.isDirectory()) {
+      throw new Error('Create the target directory and add its .env before running kacha clone.')
+    }
+    const { cloneProject } = await import('./clone-project.js')
+    process.exitCode = await cloneProject(projectRoot)
   } else if (positionals[0] === 'init' && positionals.length === 1) {
     await initProject(process.cwd())
     console.log('Kacha project initialized in ' + process.cwd())

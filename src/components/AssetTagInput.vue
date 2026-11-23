@@ -19,8 +19,6 @@ export default {
 
 <style scoped>
 .asset-tag-editor.el-input-tag {
-  --el-color-primary: var(--accent);
-  --el-color-primary-light-9: var(--accent-bg);
   --el-input-tag-input-focus-border-color: var(--focus-border);
 }
 </style>

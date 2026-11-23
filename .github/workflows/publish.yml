@@ -49,6 +49,14 @@ jobs:
             for (const path of [
               "bin/kacha.js",
               "bin/init-project.js",
+              "bin/lfs-setup.js",
+              "bin/lfs-transfer.js",
+              "bin/clone-project.js",
+              "server/project-storage.js",
+              "skills/manage-assets/SKILL.md",
+              "skills/sync-jimeng-assets/SKILL.md",
+              "templates/project/.gitattributes",
+              "templates/project/README.md",
               "templates/project/AGENTS.md",
               ...["characters", "scenes", "props", "other", "audio"].map(
                 kind => `templates/project/assets/${kind}/README.md`
@@ -57,6 +65,7 @@ jobs:
               assert.ok(files.has(path), `Missing package file: ${path}`);
             }
             assert.ok(![...files].some(path => path.startsWith("creative-templates/")));
+            assert.ok(![...files].some(path => /(^|\/)\.env(?:\.|$)/.test(path)));
           '
 
       - name: Publish to npm with OIDC

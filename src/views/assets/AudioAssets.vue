@@ -201,7 +201,7 @@ export default {
     </div>
 
     <dialog ref="create" class="dialog small-dialog" @close="create = null" @cancel.prevent="!busy && $refs.create.close()">
-      <form v-if="create" @submit.prevent="createAudio">
+      <form class="dialog-form" v-if="create" @submit.prevent="createAudio">
         <header class="dialog-head">
           <h2>{{ $t('新建音频') }}</h2>
           <button type="button" class="icon-button" :aria-label="$t('关闭')" :disabled="busy" @click="$refs.create.close()"><X :size="20" /></button>
@@ -212,14 +212,15 @@ export default {
             <ElInput id="create-audio-name" v-model="create.name" required autofocus :disabled="busy" />
           </div>
           <p v-if="error" class="error" role="alert">{{ error }}</p>
-          <div class="dialog-actions create-actions">
-            <button class="primary" :disabled="busy">{{ $t('创建音频') }}</button>
-          </div>
         </div>
+        <footer class="dialog-footer">
+          <button type="button" class="secondary" :disabled="busy" @click="$refs.create.close()">{{ $t('取消') }}</button>
+          <button type="submit" class="primary" :disabled="busy">{{ $t('创建音频') }}</button>
+        </footer>
       </form>
     </dialog>
 
-    <dialog ref="dialog" class="dialog" @close="close"
+    <dialog ref="dialog" class="dialog audio-detail-dialog" @close="close"
       @cancel.prevent="!busy && !$event.currentTarget.querySelector('.asset-delete-message') && $refs.dialog.close()">
       <header class="dialog-head">
         <h2>{{ active?.name }}</h2>
@@ -228,7 +229,7 @@ export default {
       <div class="dialog-body">
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <template v-if="active">
-          <form class="edit-form" @submit.prevent="submitOverview('PATCH', overview)">
+          <form id="audio-overview-form" class="edit-form" @submit.prevent="submitOverview('PATCH', overview)">
             <div class="audio-field">
               <label for="audio-name">{{ $t('名称') }}</label>
               <ElInput id="audio-name" v-model="overview.name" required :disabled="busy" />
@@ -273,13 +274,14 @@ export default {
               </section>
             </details>
 
-            <div class="dialog-actions overview-actions">
-              <AssetDeleteButton :asset-name="active.name" :busy="busy" @confirm="submitOverview('DELETE', {})" />
-              <button class="primary overview-save-button" :disabled="busy">{{ $t('保存') }}</button>
-            </div>
           </form>
         </template>
       </div>
+      <footer class="dialog-footer overview-actions" v-if="active">
+        <AssetDeleteButton :asset-name="active.name" :busy="busy" @confirm="submitOverview('DELETE', {})" />
+        <button type="button" class="secondary" :disabled="busy" @click="$refs.dialog.close()">{{ $t('取消') }}</button>
+        <button form="audio-overview-form" type="submit" class="primary overview-save-button" :disabled="busy">{{ $t('保存') }}</button>
+      </footer>
     </dialog>
   </section>
 </template>
@@ -302,7 +304,6 @@ export default {
 
 .dialog {
   --form-focus-ring: rgb(91 92 245 / 16%);
-  --el-color-primary: var(--accent);
   --el-border-radius-base: 7px;
 }
 

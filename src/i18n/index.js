@@ -1,4 +1,5 @@
 import { reactive, watch } from 'vue'
+import projectGlobal from 'virtual:project-global'
 import en from './en.json'
 
 const storageKey = 'workbench.locale'
@@ -6,6 +7,7 @@ const defaultLocale = 'zh-CN'
 export const languages = Object.freeze({ 'zh-CN': '简体中文', en: 'English' })
 
 function readLocale() {
+  if (Object.hasOwn(languages, projectGlobal.locale)) return projectGlobal.locale
   try {
     const saved = localStorage.getItem(storageKey)
     if (Object.hasOwn(languages, saved)) return saved
@@ -30,11 +32,6 @@ export const i18n = {
     app.config.globalProperties.$t = translate
     watch(() => language.locale, locale => {
       document.documentElement.lang = locale
-      try {
-        localStorage.setItem(storageKey, locale)
-      } catch {
-        // Keep the current selection in memory.
-      }
     }, { immediate: true, flush: 'sync' })
   },
 }
