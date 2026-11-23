@@ -1,0 +1,71 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Check release tag
+        run: |
+          expected_tag="v$(node -p 'require("./package.json").version')"
+          if [ "$GITHUB_REF" != "refs/tags/$expected_tag" ]; then
+            echo "::error::Select or push the tag $expected_tag for this version."
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Check package contents
+        run: |
+          set -o pipefail
+          npm pack --dry-run --json | node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import { readFileSync } from "node:fs";
+            const [pkg] = JSON.parse(readFileSync(0, "utf8"));
+            const files = new Set(pkg.files.map(file => file.path));
+            for (const path of [
+              "bin/kacha.js",
+              "bin/init-project.js",
+              "templates/project/AGENTS.md",
+              ...["characters", "scenes", "props", "other", "audio"].map(
+                kind => `templates/project/assets/${kind}/README.md`
+              ),
+            ]) {
+              assert.ok(files.has(path), `Missing package file: ${path}`);
+            }
+            assert.ok(![...files].some(path => path.startsWith("creative-templates/")));
+          '
+
+      - name: Publish to npm
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/kacha-npmrc"
+            umask 077
+            printf '%s\n' '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > "$NPM_CONFIG_USERCONFIG"
+          fi
+          npm publish
