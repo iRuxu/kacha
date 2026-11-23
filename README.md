@@ -9,7 +9,7 @@
 ```sh
 mkdir my-project
 cd my-project
-npm install --save-dev kacha
+npm install --save-dev @2kog/kacha
 npx kacha init
 npx kacha
 ```
@@ -17,7 +17,7 @@ npx kacha
 常用多个项目时，也可以全局安装一次，再到各项目目录执行初始化和启动命令：
 
 ```sh
-npm install -g kacha
+npm install -g @2kog/kacha
 mkdir my-project
 cd my-project
 kacha init
@@ -59,6 +59,6 @@ my-project/
 
 ## 发布 npm 包
 
-把 `package.json` 和锁文件更新到同一版本并提交，再推送对应的 `v<版本>` 标签。例如首版用 `v0.1.0`。GitHub Actions 会校验标签、安装依赖、构建并检查打包内容，随后发布到 npm。也可在 Actions 中选择对应标签手动运行。
+把 `package.json` 和锁文件更新到同一版本并提交，再推送对应的 `v<版本>` 标签。例如 `v0.1.1`。GitHub Actions 会校验标签、安装依赖、构建并检查打包内容，随后发布到 npm。也可在 Actions 中选择对应标签手动运行。
 
-首发时，用 npm 账号 `rx6` 创建允许发布新包的短期 Granular Access Token，开启 Bypass 2FA，并将其保存为仓库的 Actions Secret `NPM_TOKEN`。首发成功后，如需改用 Trusted Publishing，在 npm 的 `kacha` 包设置中添加 GitHub Actions 发布者，填写组织或用户名 `iRuxu`、仓库 `kacha`、工作流 `publish.yml`，开启 `npm publish` 权限，环境留空。移除 GitHub 的 `NPM_TOKEN` 后，工作流会使用 OIDC 发布。 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)
+首发时，用有 `@2kog` 发布权限的 npm 账号创建允许在该作用域发布新包的短期 Granular Access Token，开启 Bypass 2FA，并将其保存为仓库的 Actions Secret `NPM_TOKEN`。首发成功后，如需改用 Trusted Publishing，在 npm 的 `@2kog/kacha` 包设置中添加 GitHub Actions 发布者，填写组织或用户名 `iRuxu`、仓库 `kacha`、工作流 `publish.yml`，开启 `npm publish` 权限，环境留空。移除 GitHub 的 `NPM_TOKEN` 后，工作流会使用 OIDC 发布。 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)

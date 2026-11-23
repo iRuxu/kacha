@@ -1,6 +1,6 @@
 {
-  "name": "kacha",
-  "version": "0.1.0",
+  "name": "@2kog/kacha",
+  "version": "0.1.1",
   "description": "Local production workbench for creative projects",
   "author": "rx6",
   "repository": {
