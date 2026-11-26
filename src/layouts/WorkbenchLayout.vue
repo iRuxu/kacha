@@ -30,16 +30,10 @@ export default {
   },
   computed: {
     projectName() {
-      return projectBrand.name || this.$t('制作项目')
-    },
-    storageLfsTarget() {
-      const { bucket, prefix } = this.storageDraft
-      if (!bucket) return ''
-      const directory = prefix.trim().replace(/^\/+|\/+$/g, '')
-      return [bucket, directory, '__kacha_lfs__', 'objects'].filter(Boolean).join('/') + '/'
+      return projectBrand.name || 'Kacha'
     },
     projectDescription() {
-      return projectBrand.description || this.$t('制作工作台')
+      return projectBrand.description || this.$t('项目工作台')
     },
   },
   methods: {
@@ -257,11 +251,6 @@ export default {
         </div>
         <div v-if="configTab === 'storage'" id="project-storage-panel" class="dialog-body" role="tabpanel" aria-labelledby="project-storage-tab">
           <form id="project-storage-form" class="project-config-form" autocomplete="off" @submit.prevent="saveProjectStorage">
-            <div class="storage-lfs-target">
-              <strong>{{ $t('Git LFS 存储目标') }}</strong>
-              <p>{{ $t('Git LFS 使用这里保存的 OSS 配置直传和下载媒体。') }}</p>
-              <code v-if="!storageLoading && storageLfsTarget">{{ storageLfsTarget }}</code>
-            </div>
             <label class="field">{{ $t('OSS 地址') }}
               <input v-model.trim="storageDraft.endpoint" placeholder="oss-cn-hangzhou.aliyuncs.com" required :disabled="storageLoading || configSaving" />
             </label>

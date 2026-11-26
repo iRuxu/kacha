@@ -1,18 +1,26 @@
 import * as fs from 'node:fs/promises'
+import { readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { projectRoot } from './project-paths.js'
 
 const root = projectRoot
-const documents = [
-  { group: '故事设定', title: '世界观与角色', file: 'docs/世界观与角色.md' },
-  { group: '美术设定', title: '角色美术', file: 'docs/角色美术设定.md' },
-  { group: '美术设定', title: '场景与空间', file: 'assets/scenes/README.md' },
-  { group: '美术设定', title: '道具美术', file: 'docs/道具美术设定.md' },
-  { group: '生成与制作', title: '3D 电影 CG 风格', file: 'docs/3D电影CG风格与生成工作流.md' },
-  { group: '生成与制作', title: '分镜与视频生成', file: 'docs/agents/production-workflow.md' },
-  { group: '生成与制作', title: '角色原画与三视图', file: 'docs/角色双版本与3D高清生成规范.md' },
-]
-const types = { '.md': 'text/plain; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.avif': 'image/avif', '.gif': 'image/gif' }
+async function listDocuments() {
+  const documents = []
+  for (const [folder, group] of [['story', '故事设定'], ['art', '美术设定'], ['other', '其它设定']]) {
+    const directory = path.join(root, 'docs', folder)
+    if (await fs.realpath(directory).catch(() => '') !== directory) continue
+    const entries = await fs.readdir(directory, { withFileTypes: true, recursive: true })
+    for (const entry of entries) {
+      if (!entry.isFile() || !/\.(md|markdown)$/i.test(entry.name)) continue
+      const file = path.relative(root, path.join(entry.parentPath, entry.name)).split(path.sep).join('/')
+      documents.push({ group, title: path.parse(entry.name).name, file })
+    }
+  }
+  return documents.sort((a, b) => a.group === b.group ? a.file.localeCompare(b.file, 'zh') : 0)
+}
+
+const types = { '.markdown': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.avif': 'image/avif', '.gif': 'image/gif' }
 
 export function projectSettings() {
   return {
@@ -21,13 +29,13 @@ export function projectSettings() {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, 'http://localhost')
         if (url.pathname !== '/api/settings') return next()
-        if (req.method !== 'GET') {
+        if (req.method !== 'GET' && !(req.method === 'PUT' && url.searchParams.has('file'))) {
           res.statusCode = 405
           return res.end()
         }
         if (!url.searchParams.has('file')) {
           res.setHeader('Content-Type', 'application/json; charset=utf-8')
-          return res.end(JSON.stringify(documents))
+          return res.end(JSON.stringify(await listDocuments()))
         }
         const requested = url.searchParams.get('file')
         const allowedRoot = requested.split('/')[0]
@@ -40,6 +48,32 @@ export function projectSettings() {
           return res.end('找不到项目文档或参考图')
         }
         try {
+          if (req.method === 'PUT') {
+            if (!(await listDocuments()).some(document => document.file === requested)) {
+              res.statusCode = 404
+              return res.end('找不到设定文档')
+            }
+            const chunks = []
+            for await (const chunk of req) chunks.push(chunk)
+            const patch = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+            if (typeof patch?.markdown !== 'string' || typeof patch.original !== 'string') {
+              res.statusCode = 400
+              return res.end('保存内容无效')
+            }
+            if (readFileSync(file, 'utf8') !== patch.original) {
+              res.statusCode = 409
+              return res.end('文档已在其他位置修改，请保留草稿并重新载入。')
+            }
+            const temporary = file + '.' + randomUUID() + '.tmp'
+            try {
+              writeFileSync(temporary, patch.markdown, { flag: 'wx' })
+              renameSync(temporary, file)
+            } finally {
+              rmSync(temporary, { force: true })
+            }
+            res.statusCode = 204
+            return res.end()
+          }
           const data = await fs.readFile(file)
           res.setHeader('Content-Type', type)
           res.setHeader('X-Content-Type-Options', 'nosniff')

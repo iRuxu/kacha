@@ -22,7 +22,8 @@ export default {
 
 <style scoped>
 .markdown { font-size: 14px; line-height: 1.68; overflow-wrap: anywhere; }
-.markdown :deep(h1) { font-size: 21px; }
+.markdown :deep(h1) { font-size: 24px; }
+.markdown :deep(h2) { font-size: 18px; }
 .markdown :deep(a) { color: var(--accent); }
 .markdown :deep(img) { display: block; max-width: 100%; height: auto; border-radius: 7px; }
 .markdown :deep(.markdown-table) { max-width: 100%; margin-block: 12px; overflow-x: auto; }

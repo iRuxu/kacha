@@ -1,1 +1,4 @@
 /creative-templates/
+tmp/
+node_modules/
+dist/

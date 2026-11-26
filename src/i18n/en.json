@@ -1,6 +1,4 @@
 {
-  "Git LFS 存储目标": "Git LFS Storage Destination",
-  "Git LFS 使用这里保存的 OSS 配置直传和下载媒体。": "Git LFS uploads and downloads media directly using the OSS settings saved here.",
   "当前项目没有可同步的文件": "This project has no files to sync",
   "本地和云端存在冲突路径，请调整文件名后重新预览": "Local and cloud paths collide. Rename the affected files and preview again.",
   "发现 {legacy} 个旧对象，其中 {reuse} 个可尝试校验后复用。": "Found {legacy} legacy objects. {reuse} are candidates for verification and reuse.",
@@ -109,7 +107,7 @@
   "无法保存项目设置": "Unable to save project settings",
   "语言": "Language",
   "制作工作台": "Production Workbench",
-  "制作项目": "Production Project",
+  "项目工作台": "Project Workbench",
   "工作台": "Workbench",
   "设定": "Settings",
   "资产": "Assets",

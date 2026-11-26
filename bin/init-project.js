@@ -31,6 +31,7 @@ async function keepExisting(operation) {
 
 async function copyTemplates(source, destination) {
   for (const entry of await readdir(source, { withFileTypes: true })) {
+    if (entry.name === '.gitkeep') continue
     const from = join(source, entry.name)
     const to = join(destination, entry.name)
     if (entry.isDirectory()) {

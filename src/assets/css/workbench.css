@@ -167,18 +167,6 @@ a:focus-visible { text-decoration: underline; text-decoration-thickness: 2px; }
 .project-logo-field .brand-icon { width: 64px; height: 64px; border: 1px solid var(--line); }
 .project-logo-field img { object-fit: contain; padding: 4px; }
 .project-logo-field .upload:focus-within { box-shadow: inset 0 0 0 1px var(--focus-border); }
-.storage-lfs-target {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: var(--accent-bg);
-  color: #33384a;
-  font-size: 13px;
-}
-.storage-lfs-target strong { color: var(--accent); }
-.storage-lfs-target p { margin: 0; }
-.storage-lfs-target code { overflow-wrap: anywhere; }
 .storage-test-button { margin-inline-end: auto; }
 .storage-test-result {
   display: grid;
@@ -471,6 +459,9 @@ audio { max-width: 100%; }
 .settings-index button { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8px; text-align: left; border: 0; border-radius: 6px; background: #fff; color: var(--ink, #21263b); font-size: 13px; }
 .settings-index button.current, .settings-index button:hover { color: var(--accent); background: var(--accent-bg); }
 .settings-reader { padding: clamp(14px, 3vw, 32px); }
+.settings-reader .asset-story-actions { position: sticky; top: 0; z-index: 1; background: white; padding-block: 6px; }
+.settings-reader .asset-story-panel { height: auto; overflow: visible; }
+.settings-reader textarea { min-height: 58dvh; }
 .settings-source { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .settings-reader .markdown { line-height: 1.8; }
 @media (max-width: 720px) {
