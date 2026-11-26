@@ -1,7 +1,8 @@
 import * as fs from 'node:fs/promises'
-import { readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs'
+import { mkdirSync, readdirSync, realpathSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { listScripts } from './project-scripts.js'
 import { projectRoot } from './project-paths.js'
 
 const root = projectRoot
@@ -18,6 +19,18 @@ async function listDocuments() {
     }
   }
   return documents.sort((a, b) => a.group === b.group ? a.file.localeCompare(b.file, 'zh') : 0)
+}
+
+function archiveScript(file, original) {
+  const directory = path.join(path.dirname(file), 'archive')
+  mkdirSync(directory, { recursive: true })
+  if (realpathSync(directory) !== directory) throw new Error('Invalid script archive')
+  const versions = readdirSync(directory).map(name => /^v(\d+)\.md$/.exec(name))
+    .filter(Boolean).map(match => Number(match[1]))
+  const version = String(Math.max(0, ...versions) + 1).padStart(3, '0')
+  const archived = path.join(directory, 'v' + version + '.md')
+  writeFileSync(archived, original, { flag: 'wx' })
+  return archived
 }
 
 const types = { '.markdown': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.avif': 'image/avif', '.gif': 'image/gif' }
@@ -49,9 +62,15 @@ export function projectSettings() {
         }
         try {
           if (req.method === 'PUT') {
-            if (!(await listDocuments()).some(document => document.file === requested)) {
+            const isScript = allowedRoot === 'scripts'
+            const [, folder, filename] = requested.split('/')
+            const editable = isScript
+              ? requested === ['scripts', folder, filename].join('/') &&
+                (await listScripts()).some(script => script.name === folder && script.documents.includes(filename))
+              : (await listDocuments()).some(document => document.file === requested)
+            if (!editable) {
               res.statusCode = 404
-              return res.end('找不到设定文档')
+              return res.end(isScript ? '找不到可编辑的剧本文档' : '找不到设定文档')
             }
             const chunks = []
             for await (const chunk of req) chunks.push(chunk)
@@ -64,10 +83,19 @@ export function projectSettings() {
               res.statusCode = 409
               return res.end('文档已在其他位置修改，请保留草稿并重新载入。')
             }
+            if (isScript && patch.original === patch.markdown) {
+              res.statusCode = 204
+              return res.end()
+            }
+            let archived
             const temporary = file + '.' + randomUUID() + '.tmp'
             try {
               writeFileSync(temporary, patch.markdown, { flag: 'wx' })
+              if (isScript && filename === 'index.md') archived = archiveScript(file, patch.original)
               renameSync(temporary, file)
+            } catch (cause) {
+              if (archived) rmSync(archived, { force: true })
+              throw cause
             } finally {
               rmSync(temporary, { force: true })
             }

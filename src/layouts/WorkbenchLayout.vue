@@ -1,12 +1,12 @@
 <script>
 import { ElOption, ElSelect } from 'element-plus'
 import 'element-plus/es/components/select/style/css'
-import { AudioLines, BookOpen, Box, ChevronRight, CircleAlert, CircleCheck, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X } from 'lucide-vue-next'
+import { AudioLines, BookOpen, Box, ChevronRight, CircleAlert, CircleCheck, FileText, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X } from 'lucide-vue-next'
 import projectBrand from 'virtual:project-brand'
 import { language, languages } from '@/i18n/index.js'
 
 export default {
-  components: { ElOption, ElSelect, AudioLines, BookOpen, Box, ChevronRight, CircleAlert, CircleCheck, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X },
+  components: { ElOption, ElSelect, AudioLines, BookOpen, Box, ChevronRight, CircleAlert, CircleCheck, FileText, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X },
   props: { sections: { type: Array, required: true } },
   data() {
     return {
@@ -183,7 +183,7 @@ export default {
       <nav :aria-label="$t('工作台')">
         <template v-for="(item, index) in sections" :key="item.name">
           <div v-if="item.group !== sections[index - 1]?.group" class="nav-title">{{ $t(item.group) }}</div>
-          <RouterLink class="nav-link" :class="{ 'settings-nav': item.name === 'settings' }"
+          <RouterLink class="nav-link"
             :to="{ name: item.name }" exact-active-class="selected">
             <component :is="item.icon" :size="17" />{{ $t(item.label, {}, 'navigation') }}<ChevronRight class="nav-arrow" :size="14" />
           </RouterLink>

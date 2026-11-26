@@ -35,7 +35,7 @@ export default {
       const revision = ++this.listRevision
       try {
         const response = await fetch('/api/settings', { cache: 'no-store' })
-        if (!response.ok) throw new Error(this.$t('无法读取项目设定目录'))
+        if (!response.ok) throw new Error(this.$t('无法读取设定目录'))
         const documents = await response.json()
         if (revision !== this.listRevision) return
         this.documents = documents
@@ -100,10 +100,10 @@ export default {
 
 <template>
   <section class="content">
-    <div class="heading"><h1>{{ $t('项目设定') }}</h1></div>
+    <div class="heading"><h1>{{ $t('设定') }}</h1></div>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <div class="settings-layout">
-      <nav class="settings-index" :aria-label="$t('项目设定目录')">
+      <nav class="settings-index" :aria-label="$t('设定目录')">
         <div v-for="[group, items] in groups" :key="group">
           <h2>{{ $t(group) }}</h2>
           <button v-for="document in items" :key="document.file" :disabled="draft !== null || saving" :class="{ current: active?.file === document.file }"

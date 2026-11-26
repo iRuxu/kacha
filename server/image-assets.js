@@ -523,7 +523,7 @@ async function readBody(req) {
   }
 }
 
-async function streamAudio(file, req, res) {
+export async function streamMedia(file, req, res) {
   const { size } = await fs.stat(file)
   res.setHeader('Accept-Ranges', 'bytes')
   const range = req.headers.range
@@ -578,7 +578,7 @@ export function imageAssets(kind) {
             res.setHeader('Content-Type', mime)
             res.setHeader('Cache-Control', 'no-cache')
             if (isAudio) {
-              await streamAudio(file, req, res)
+              await streamMedia(file, req, res)
               return
             }
             createReadStream(file).on('error', () => res.destroy()).pipe(res)
