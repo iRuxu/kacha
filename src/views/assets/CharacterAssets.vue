@@ -10,7 +10,7 @@ import 'element-plus/es/components/dropdown/style/css'
 import 'element-plus/es/components/dropdown-item/style/css'
 import 'element-plus/es/components/dropdown-menu/style/css'
 import 'element-plus/es/components/switch/style/css'
-import { AudioLines, Check, ChevronDown, Image, Layers3, ListChecks, Pencil, Plus, RefreshCw, Search, Star, Upload, X } from 'lucide-vue-next'
+import { AudioLines, Check, ChevronDown, Image, Layers3, ListChecks, Pencil, Play, Square, Plus, RefreshCw, Search, Star, Upload, X } from 'lucide-vue-next'
 import { requestAsset } from '@/service/assets.js'
 import { jimengSyncUrl } from '@/service/jimeng.js'
 
@@ -29,9 +29,10 @@ const tabs = [
 
 export default {
   name: 'CharacterAssets',
-  components: { AssetDeleteButton, AssetHistory, AssetStoryEditor, AssetTagInput, ProjectMarkdown, ElCheckbox, ElDropdown, ElDropdownItem, ElDropdownMenu, ElSwitch, AudioLines, Check, ChevronDown, Image, Layers3, ListChecks, Pencil, Plus, RefreshCw, Search, Star, Upload, X },
+  components: { AssetDeleteButton, AssetHistory, AssetStoryEditor, AssetTagInput, ProjectMarkdown, ElCheckbox, ElDropdown, ElDropdownItem, ElDropdownMenu, ElSwitch, AudioLines, Check, ChevronDown, Image, Layers3, ListChecks, Pencil, Play, Square, Plus, RefreshCw, Search, Star, Upload, X },
   data() {
     return {
+      voicePlayer: null, playingVoice: null,
       mediaTypes, tabs, characters: [], query: '', filters: [], missingVoiceOnly: false, coverPreview: '', cardPreviews: {},
       selecting: false, selectedIds: new Set(),
       active: null, activeTab: 'overview', galleryFile: '', creating: false, busy: false,
@@ -84,6 +85,7 @@ export default {
     if (this.busy) return false
   },
   deactivated() {
+    this.stopVoice()
     this.toggleSelection(false)
     this.openRevision++
     this.$refs.create.close()
@@ -94,9 +96,33 @@ export default {
     import.meta.hot?.on('workbench:characters:changed', this.refreshAssets)
   },
   beforeUnmount() {
+    this.stopVoice()
     import.meta.hot?.off('workbench:characters:changed', this.refreshAssets)
   },
   methods: {
+    stopVoice() {
+      this.voicePlayer?.pause()
+      this.voicePlayer = null
+      this.playingVoice = null
+    },
+    async toggleVoice(character) {
+      const alreadyPlaying = this.playingVoice === character.id
+      this.stopVoice()
+      if (alreadyPlaying) return
+      const player = new Audio(character.media.voice)
+      this.voicePlayer = player
+      this.playingVoice = character.id
+      player.onended = () => {
+        if (this.voicePlayer === player) this.stopVoice()
+      }
+      try {
+        await player.play()
+      } catch {
+        if (this.voicePlayer !== player) return
+        this.stopVoice()
+        this.pageError = this.$t('无法播放默认音色')
+      }
+    },
     async refreshAssets() {
       await this.refresh()
       const active = this.active
@@ -187,6 +213,7 @@ export default {
       return character.media[preview] ? preview : character.main
     },
     async open(character) {
+      this.stopVoice()
       if (this.selecting) {
         this.setSelected(character.id, !this.selectedIds.has(character.id))
         return
@@ -361,9 +388,16 @@ export default {
               <img v-if="character.main" :src="character.media[cardImage(character)]" loading="lazy" :alt="character.name">
               <span v-else class="character-cover-empty" aria-hidden="true"></span>
             </button>
-            <div v-if="canSwitchCover(character)" class="preview-toggle" role="group" :aria-label="$t('{name} 图片预览', { name: character.name })">
-              <button :aria-pressed="cardImage(character) === 'image2d'" @click="cardPreviews[character.id] = 'image2d'">2D</button>
-              <button :aria-pressed="cardImage(character) === 'image3d'" @click="cardPreviews[character.id] = 'image3d'">3D</button>
+            <div v-if="canSwitchCover(character) || character.media.voice" class="preview-toggle" role="group" :aria-label="$t('{name} 预览', { name: character.name })">
+              <template v-if="canSwitchCover(character)">
+                <button :aria-pressed="cardImage(character) === 'image2d'" @click="cardPreviews[character.id] = 'image2d'">2D</button>
+                <button :aria-pressed="cardImage(character) === 'image3d'" @click="cardPreviews[character.id] = 'image3d'">3D</button>
+              </template>
+              <button v-if="character.media.voice" type="button"
+                :title="$t('试听默认音色')" :aria-label="$t('试听默认音色')" :aria-pressed="playingVoice === character.id"
+                @click="toggleVoice(character)">
+                <component :is="playingVoice === character.id ? 'Square' : 'Play'" :size="12" aria-hidden="true" />
+              </button>
             </div>
           </div>
           <div class="card-info">

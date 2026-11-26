@@ -1,22 +1,25 @@
 <script>
-import { ElOption, ElSelect } from 'element-plus'
-import 'element-plus/es/components/select/style/css'
-import { AudioLines, BookOpen, Box, ChevronRight, CircleAlert, CircleCheck, FileText, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X } from 'lucide-vue-next'
+import { ElMessage, ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
+import 'element-plus/es/components/dropdown/style/css'
+import 'element-plus/es/components/dropdown-item/style/css'
+import 'element-plus/es/components/dropdown-menu/style/css'
+import 'element-plus/es/components/message/style/css'
+import { AudioLines, BookOpen, Box, Check, ChevronRight, CircleAlert, CircleCheck, Clapperboard, FileText, Globe, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X } from 'lucide-vue-next'
 import projectBrand from 'virtual:project-brand'
 import { language, languages } from '@/i18n/index.js'
 
 export default {
-  components: { ElOption, ElSelect, AudioLines, BookOpen, Box, ChevronRight, CircleAlert, CircleCheck, FileText, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X },
+  components: { ElDropdown, ElDropdownItem, ElDropdownMenu, AudioLines, BookOpen, Box, Check, ChevronRight, CircleAlert, CircleCheck, Clapperboard, FileText, Globe, Layers3, LoaderCircle, Mountain, Plug, Settings, Users, X },
   props: { sections: { type: Array, required: true } },
   data() {
     return {
+      language,
       languages,
       logoFile: null,
       logoPreview: '',
       configSaving: false,
       configTab: 'basics',
-      localeDraft: language.locale,
-      localeError: false,
+      localeSaving: false,
       storageLoading: false,
       storageDraft: { endpoint: '', bucket: '', prefix: '', keyId: '', secret: '' },
       storageStatus: { hasKeyId: false, hasSecret: false },
@@ -74,23 +77,21 @@ export default {
         this.storageLoading = false
       }
     },
-    async saveProjectLocale() {
-      if (this.configSaving) return
-      this.configSaving = true
-      this.localeError = false
+    async saveProjectLocale(locale) {
+      if (this.localeSaving || locale === language.locale) return
+      this.localeSaving = true
       try {
         const response = await fetch('/api/project-global', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ locale: this.localeDraft }),
+          body: JSON.stringify({ locale }),
         })
         if (!response.ok) throw new Error()
-        language.locale = this.localeDraft
-        this.$refs.projectConfig.close()
+        language.locale = locale
       } catch {
-        this.localeError = true
+        ElMessage.error(this.$t('无法保存语言设置'))
       } finally {
-        this.configSaving = false
+        this.localeSaving = false
       }
     },
     async testProjectStorage() {
@@ -138,8 +139,6 @@ export default {
     },
     openProjectConfig() {
       this.configTab = 'basics'
-      this.localeDraft = language.locale
-      this.localeError = false
       this.configDraft = { name: projectBrand.name, description: projectBrand.description }
       this.configError = false
       this.$refs.projectConfig.showModal()
@@ -179,7 +178,7 @@ export default {
 <template>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><span class="brand-icon"><img v-if="projectLogo" :src="projectLogo" alt="" @error="projectLogo = ''" /><span v-else class="brand-rabbit" aria-hidden="true"></span></span><div><strong>{{ projectName }}</strong><small>{{ projectDescription }}</small></div></div>
+      <RouterLink class="brand" :to="{ name: 'home' }" :aria-label="$t('项目首页')"><span class="brand-icon"><img v-if="projectLogo" :src="projectLogo" alt="" @error="projectLogo = ''" /><span v-else class="brand-rabbit" aria-hidden="true"></span></span><div><strong>{{ projectName }}</strong><small>{{ projectDescription }}</small></div></RouterLink>
       <nav :aria-label="$t('工作台')">
         <template v-for="(item, index) in sections" :key="item.name">
           <div v-if="item.group !== sections[index - 1]?.group" class="nav-title">{{ $t(item.group) }}</div>
@@ -197,6 +196,21 @@ export default {
         <ChevronRight :size="14" aria-hidden="true" />
         <strong>{{ $t($route.meta.label) }}</strong>
         <div class="topbar-actions">
+          <ElDropdown trigger="click" placement="bottom-end" :disabled="localeSaving" @command="saveProjectLocale">
+            <button type="button" class="topbar-icon-button language-trigger" :aria-label="[$t('语言'), languages[language.locale]].join(' · ')" :title="$t('语言')" :disabled="localeSaving">
+              <Globe :size="17" aria-hidden="true" />
+              <span>{{ language.locale === 'en' ? 'EN' : '中文' }}</span>
+            </button>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem v-for="(label, locale) in languages" :key="locale" :command="locale"
+                  :aria-current="language.locale === locale ? 'true' : undefined">
+                  <span :lang="locale">{{ label }}</span>
+                  <Check v-if="language.locale === locale" :size="14" aria-hidden="true" />
+                </ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
           <button type="button" class="topbar-icon-button project-config-trigger" :aria-label="$t('全局设置')"
             :title="$t('全局设置')" aria-haspopup="dialog" @click="openProjectConfig">
             <Settings :size="17" aria-hidden="true" />
@@ -218,9 +232,6 @@ export default {
           <button id="project-storage-tab" type="button" role="tab" :class="{ current: configTab === 'storage' }"
             :aria-selected="configTab === 'storage'" aria-controls="project-storage-panel" :disabled="configSaving || storageLoading || storageTesting"
             @click="selectConfigTab('storage')">{{ $t('存储设置') }}</button>
-          <button id="project-other-tab" type="button" role="tab" :class="{ current: configTab === 'other' }"
-            :aria-selected="configTab === 'other'" aria-controls="project-other-panel" :disabled="configSaving || storageLoading || storageTesting"
-            @click="selectConfigTab('other')">{{ $t('其它设置') }}</button>
         </div>
         <div v-show="configTab === 'basics'" id="project-basics-panel" class="dialog-body" role="tabpanel" aria-labelledby="project-basics-tab">
           <form id="project-config-form" class="project-config-form" @submit.prevent="saveProjectConfig">
@@ -286,17 +297,6 @@ export default {
               </div>
             </div>
             <p v-if="storageError" class="project-config-error" role="alert">{{ $t(storageError) }}</p>
-          </form>
-        </div>
-        <div v-if="configTab === 'other'" id="project-other-panel" class="dialog-body" role="tabpanel" aria-labelledby="project-other-tab">
-          <form id="project-other-form" class="project-config-form" @submit.prevent="saveProjectLocale">
-            <div class="field">
-              <label for="project-locale">{{ $t('语言') }}</label>
-              <ElSelect id="project-locale" v-model="localeDraft" :teleported="false" :disabled="configSaving">
-                <ElOption v-for="(label, locale) in languages" :key="locale" :value="locale" :label="label" :lang="locale" />
-              </ElSelect>
-            </div>
-            <p v-if="localeError" class="project-config-error" role="alert">{{ $t('无法保存语言设置') }}</p>
           </form>
         </div>
         <footer class="dialog-footer">

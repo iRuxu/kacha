@@ -30,7 +30,7 @@ a:focus-visible { text-decoration: underline; text-decoration-thickness: 2px; }
 @media (forced-colors: active) { :focus-visible { outline: 1px solid Highlight; outline-offset: -1px; } }
 .shell { display: grid; min-height: 100vh; grid-template-columns: 208px minmax(0, 1fr); }
 .sidebar { position: sticky; top: 0; height: 100vh; background: #fff; border-right: 1px solid var(--line); padding: 24px 14px; }
-.brand { display: flex; align-items: center; gap: 11px; margin: 0 8px 40px; }
+.brand { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 11px; margin: 0 8px 40px; }
 .brand-icon { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--accent); color: #fff; }
 .brand-icon:has(img) { background: transparent; }
 .brand-icon img { display: block; width: 100%; height: 100%; object-fit: contain; }
@@ -58,6 +58,7 @@ a:focus-visible { text-decoration: underline; text-decoration-thickness: 2px; }
   background: transparent;
   color: var(--accent);
 }
+.topbar-icon-button.language-trigger { display: inline-flex; align-items: center; gap: 4px; width: auto; padding-inline: 8px; }
 .topbar-icon-button:hover, .oss-sync-trigger.is-running { background: var(--accent-bg); }
 .oss-sync-trigger.has-count {
   display: inline-flex;
@@ -467,3 +468,11 @@ audio { max-width: 100%; }
 @media (max-width: 720px) {
   .settings-layout { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+.overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; margin-top: 20px; }
+.overview-card { position: relative; display: grid; gap: 18px; padding: 20px; color: inherit; text-decoration: none; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.overview-card:hover, .overview-card:focus-visible { border-color: var(--accent); }
+.overview-label { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+.overview-card strong { font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.overview-arrow { position: absolute; right: 16px; bottom: 20px; color: var(--muted); }

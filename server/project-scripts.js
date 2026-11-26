@@ -4,6 +4,7 @@ import { projectRoot } from './project-paths.js'
 import { streamMedia } from './image-assets.js'
 
 const root = path.join(projectRoot, 'scripts')
+const videoRoot = path.join(projectRoot, 'dist', 'scripts')
 const episodeName = /^\d{3}-.+/
 const videoTypes = new Map([
   ['.mp4', 'video/mp4'], ['.mov', 'video/quicktime'], ['.webm', 'video/webm'],
@@ -38,6 +39,7 @@ export async function listScripts() {
     const files = (await entries(directory)).filter(entry => entry.isFile()).map(entry => entry.name).sort(compareFiles)
     const archived = (await entries(path.join(directory, 'archive')))
       .filter(entry => entry.isFile()).map(entry => entry.name).sort(compareFiles).reverse()
+    const outputs = (await entries(path.join(videoRoot, name))).filter(entry => entry.isFile()).map(entry => entry.name)
     const documents = files.filter(file => /\.(md|markdown)$/i.test(file))
     return {
       name,
@@ -45,7 +47,7 @@ export async function listScripts() {
         ? ['index.md', ...documents.filter(file => file !== 'index.md')]
         : documents,
       history: archived.filter(file => /\.(md|markdown)$/i.test(file)),
-      videos: files.filter(file => videoTypes.has(path.extname(file).toLowerCase())),
+      videos: [...new Set([...outputs, ...files])].filter(file => videoTypes.has(path.extname(file).toLowerCase())).sort(compareFiles),
     }
   }))
 }
@@ -70,11 +72,13 @@ export function projectScripts() {
           const [directory, filename, ...rest] = video.split('/')
           const type = videoTypes.get(path.extname(filename || '').toLowerCase())
           if (acceptedDirectory(directory) && type && !rest.length && path.basename(filename) === filename) {
-            const file = path.join(root, directory, filename)
-            if (await fs.realpath(file).catch(() => '') === file && (await fs.stat(file)).isFile()) {
-              res.setHeader('Content-Type', type)
-              res.setHeader('X-Content-Type-Options', 'nosniff')
-              return await streamMedia(file, req, res)
+            for (const base of [videoRoot, root]) {
+              const file = path.join(base, directory, filename)
+              if (await fs.realpath(file).catch(() => '') === file && (await fs.stat(file)).isFile()) {
+                res.setHeader('Content-Type', type)
+                res.setHeader('X-Content-Type-Options', 'nosniff')
+                return await streamMedia(file, req, res)
+              }
             }
           }
           res.statusCode = 404

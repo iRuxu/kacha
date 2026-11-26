@@ -1,3 +1,4 @@
+import { projectStoryboard } from './project-storyboard.js'
 import { assetWatch } from './asset-watch.js'
 import { characterAssets } from './character-assets.js'
 import { imageAssets } from './image-assets.js'
@@ -14,6 +15,7 @@ export function workbenchPlugins() {
     ...['scenes', 'props', 'other', 'audio'].map(imageAssets),
     projectSettings(),
     projectScripts(),
+    projectStoryboard(),
     projectBrand(),
     projectGlobal(),
     projectStorage(),

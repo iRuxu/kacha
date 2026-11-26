@@ -1,4 +1,5 @@
 <script>
+import { rememberWork } from '@/service/resume.js'
 import { ChevronRight, ExternalLink, Film } from 'lucide-vue-next'
 import { ElOption, ElSelect } from 'element-plus'
 import ScriptVersionDiff from '@/components/ScriptVersionDiff.vue'
@@ -9,25 +10,39 @@ import { projectFileUrl } from '@/service/project-markdown.js'
 export default {
   components: { ChevronRight, ExternalLink, Film, ProjectMarkdown, AssetStoryEditor, ScriptVersionDiff, ElOption, ElSelect },
   data() {
-    return { scripts: [], active: null, file: '', article: '', error: '', loading: true, loaded: false, draft: null, saving: false, revision: 0, version: '', historic: null, versionRevision: 0 }
+    return { scripts: [], active: null, file: '', article: '', error: '', loading: true, loaded: false, draft: null, saving: false, revision: 0, listRevision: 0, version: '', historic: null, versionRevision: 0 }
   },
   async mounted() {
-    try {
-      const response = await fetch('/api/scripts', { cache: 'no-store' })
-      if (!response.ok) throw new Error(this.$t('无法读取剧本目录'))
-      this.scripts = await response.json()
-      if (this.scripts.length) await this.select(this.scripts[0])
-    } catch (cause) {
-      this.error = cause.message
-    } finally {
-      this.loading = false
-    }
+    import.meta.hot?.on('workbench:scripts:changed', this.refresh)
+    await this.refresh()
   },
   beforeUnmount() {
+    import.meta.hot?.off('workbench:scripts:changed', this.refresh)
+    this.listRevision++
     this.revision++
     this.versionRevision++
   },
   methods: {
+    async refresh() {
+      const revision = ++this.listRevision
+      try {
+        const response = await fetch('/api/scripts', { cache: 'no-store' })
+        if (!response.ok) throw new Error(this.$t('无法读取剧本目录'))
+        const scripts = await response.json()
+        if (revision !== this.listRevision) return
+        this.scripts = scripts
+        if (this.draft !== null || this.saving) return
+        const script = scripts.find(item => item.name === (this.active?.name || this.$route.query.episode)) || scripts[0]
+        const current = this.file.split('/').pop() || this.$route.query.file
+        const version = this.version
+        this.active = script
+        await this.open(script?.documents.includes(current) ? current : script?.documents[0], false)
+        if (revision === this.listRevision && this.active === this.scripts.find(item => item.name === script?.name) &&
+            version && script?.history.includes(version)) await this.selectVersion(version)
+      } catch (cause) {
+        if (revision === this.listRevision) this.error = cause.message
+      } finally { this.loading = false }
+    },
     title(name) {
       if (name === 'opening') return this.$t('片头')
       if (name === 'ending') return this.$t('片尾')
@@ -47,6 +62,7 @@ export default {
           body: JSON.stringify({ original: this.article, markdown: this.draft }),
         })
         if (!response.ok) throw new Error(await response.text())
+        rememberWork('scripts', { episode: this.active.name, file: this.file.split('/').pop() }, [this.title(this.active.name), this.file.split('/').pop()])
         this.article = this.draft
         this.draft = null
         const listing = await fetch('/api/scripts', { cache: 'no-store' })
@@ -79,7 +95,7 @@ export default {
         }
       }
     },
-    async open(document) {
+    async open(document, remember = true) {
       this.selectVersion('')
       const revision = ++this.revision
       this.error = ''
@@ -94,6 +110,7 @@ export default {
         if (revision === this.revision) {
           this.article = article
           this.loaded = true
+          if (remember) rememberWork('scripts', { episode: this.active.name, file: document }, [this.title(this.active.name), document === 'index.md' ? this.$t('剧本') : document])
         }
       } catch (cause) {
         if (revision === this.revision) this.error = cause.message
@@ -121,7 +138,7 @@ export default {
         </button>
       </nav>
       <div class="settings-reader">
-        <AssetStoryEditor v-model:draft="draft" :label="file" :busy="saving || !loaded || Boolean(version)" @edit="draft = article" @cancel="draft = null" @save="save">
+        <AssetStoryEditor v-model:draft="draft" :label="file" :busy="saving || !loaded || Boolean(version)" @edit="draft = article" @cancel="draft = null; refresh()" @save="save">
           <template #actions>
             <ElSelect v-if="file === 'scripts/' + active.name + '/index.md' && active.history.length"
               class="script-version-select" :empty-values="[null, undefined]" :model-value="version" :aria-label="$t('历史版本')"
