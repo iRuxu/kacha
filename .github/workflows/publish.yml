@@ -53,19 +53,26 @@ jobs:
               "bin/lfs-transfer.js",
               "bin/clone-project.js",
               "server/project-storage.js",
+              "server/project-scripts.js",
+              "server/project-storyboard.js",
+              "src/views/scripts/ProjectScripts.vue",
+              "src/views/scripts/ProjectStoryboard.vue",
               "skills/manage-assets/SKILL.md",
               "skills/sync-jimeng-assets/SKILL.md",
               "templates/project/.gitattributes",
               "templates/project/README.md",
               "templates/project/AGENTS.md",
+              "templates/project/package.json",
               ...["characters", "scenes", "props", "other", "audio"].map(
-                kind => `templates/project/assets/${kind}/README.md`
+                kind => `templates/project/assets/${kind}/.gitkeep`
               ),
             ]) {
               assert.ok(files.has(path), `Missing package file: ${path}`);
             }
             assert.ok(![...files].some(path => path.startsWith("creative-templates/")));
             assert.ok(![...files].some(path => /(^|\/)\.env(?:\.|$)/.test(path)));
+            const template = JSON.parse(readFileSync("templates/project/package.json", "utf8"));
+            assert.equal(template.dependencies[pkg.name], pkg.version);
           '
 
       - name: Publish to npm with OIDC

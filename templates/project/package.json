@@ -3,6 +3,6 @@
   "name": "Kacha",
   "description": "项目工作台",
   "dependencies": {
-    "@2kog/kacha": "0.2.1"
+    "@2kog/kacha": "0.3.0"
   }
 }
